@@ -70,7 +70,7 @@ func Fatalf(s string) {
 }
 
 // fileExists checks if the given file exists and returns a bool
-func fileExists(file string) bool {
+func FileExists(file string) bool {
 	//Debugf("checking for file existence " + file)
 	if _, err := os.Stat(file); os.IsNotExist(err) {
 		return false
@@ -79,7 +79,7 @@ func fileExists(file string) bool {
 }
 
 // isDir checks if the given dir exists and returns a bool
-func isDir(dir string) bool {
+func IsDir(dir string) bool {
 	fi, err := os.Stat(dir)
 	if os.IsNotExist(err) {
 		return false
@@ -91,7 +91,7 @@ func isDir(dir string) bool {
 }
 
 // normalizeDir removes from the given directory path multiple redundant slashes and adds a trailing slash
-func normalizeDir(dir string) string {
+func NormalizeDir(dir string) string {
 	if strings.Count(dir, "//") > 0 {
 		dir = normalizeDir(strings.Replace(dir, "//", "/", -1))
 	} else {
@@ -103,7 +103,7 @@ func normalizeDir(dir string) string {
 }
 
 // checkDirAndCreate tests if the given directory exists and tries to create it
-func checkDirAndCreate(dir string, name string) string {
+func CheckDirAndCreate(dir string, name string) string {
 	if len(dir) != 0 {
 		if !fileExists(dir) {
 			//log.Printf("checkDirAndCreate(): trying to create dir '%s' as %s", dir, name){
@@ -124,7 +124,7 @@ func checkDirAndCreate(dir string, name string) string {
 	return dir
 }
 
-func createOrPurgeDir(dir string, callingFunction string) {
+func CreateOrPurgeDir(dir string, callingFunction string) {
 	if !fileExists(dir) {
 		Debugf("Trying to create dir: " + dir + " called from " + callingFunction)
 		os.MkdirAll(dir, 0777)
@@ -138,7 +138,7 @@ func createOrPurgeDir(dir string, callingFunction string) {
 	}
 }
 
-func purgeDir(dir string, callingFunction string) {
+func PurgeDir(dir string, callingFunction string) {
 	if !fileExists(dir) {
 		Debugf("Unnecessary to remove dir: " + dir + " it does not exist. Called from " + callingFunction)
 	} else {
@@ -152,7 +152,7 @@ func purgeDir(dir string, callingFunction string) {
 	}
 }
 
-func executeCommand(command string, timeout int, allowFail bool) ExecResult {
+func ExecuteCommand(command string, timeout int, allowFail bool) ExecResult {
 	Debugf("Executing " + command)
 	parts := strings.SplitN(command, " ", 2)
 	cmd := parts[0]
@@ -190,19 +190,19 @@ func executeCommand(command string, timeout int, allowFail bool) ExecResult {
 }
 
 // funcName return the function name as a string
-func funcName() string {
+func FuncName() string {
 	pc, _, _, _ := runtime.Caller(1)
 	completeFuncname := runtime.FuncForPC(pc).Name()
 	return strings.Split(completeFuncname, ".")[len(strings.Split(completeFuncname, "."))-1]
 }
 
-func timeTrack(start time.Time, name string) {
+func TimeTrack(start time.Time, name string) {
 	duration := time.Since(start).Seconds()
 	Debugf(name + "() took " + strconv.FormatFloat(duration, 'f', 5, 64) + "s")
 }
 
 // getSha256sumFile return the SHA256 hash sum of the given file
-func getSha256sumFile(file string) string {
+func GetSha256sumFile(file string) string {
 	// https://golang.org/pkg/crypto/sha256/#New
 	f, err := os.Open(file)
 	if err != nil {
@@ -220,7 +220,7 @@ func getSha256sumFile(file string) string {
 
 // randSeq returns a fixed length random string to identify each request in the log
 // http://stackoverflow.com/a/22892986/682847
-func randSeq() string {
+func RandSeq() string {
 	b := make([]rune, 8)
 	letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -230,7 +230,7 @@ func randSeq() string {
 	return string(b)
 }
 
-func writeStructJSONFile(file string, v interface{}) {
+func WriteStructJSONFile(file string, v interface{}) {
 	f, err := os.Create(file)
 	if err != nil {
 		Warnf("Could not write JSON file " + file + " " + err.Error())
@@ -244,7 +244,7 @@ func writeStructJSONFile(file string, v interface{}) {
 }
 
 // TODO read interface instead of clusterState
-func readClusterStateFile(file string, cs clusterState) clusterState {
+func ReadClusterStateFile(file string, cs clusterState) clusterState {
 	Debugf("Trying to read json file: " + file)
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -258,7 +258,7 @@ func readClusterStateFile(file string, cs clusterState) clusterState {
 	return cs
 }
 
-func readAckFile(file string, res response) response {
+func ReadAckFile(file string, res response) response {
 	Debugf("Trying to read json file: " + file)
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -272,7 +272,7 @@ func readAckFile(file string, res response) response {
 	return res
 }
 
-func keysString(m map[string]struct{}) []string {
+func KeysString(m map[string]struct{}) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
