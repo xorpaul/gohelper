@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -20,37 +19,50 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
+var (
+	Debug         bool
+	Verbose       bool
+	Info          bool
+	InfoTimestamp bool
+	WarnExit      bool
+	Quiet         bool
+)
+
 // ExecResult contains the exit code and output of an external command (e.g. git)
 type ExecResult struct {
-	returnCode int
-	output     string
+	ReturnCode int
+	Output     string
 }
 
-// Debugf is a helper function for debug logging if global variable debug is set to true
+// Debugf is a helper function for Debug logging if global variable Debug is set to true
 func Debugf(s string) {
-	if debug != false {
+	if Debug != false {
 		pc, _, _, _ := runtime.Caller(1)
 		callingFunctionName := strings.Split(runtime.FuncForPC(pc).Name(), ".")[len(strings.Split(runtime.FuncForPC(pc).Name(), "."))-1]
 		if strings.HasPrefix(callingFunctionName, "func") {
 			// check for anonymous function names
-			log.Print("DEBUG " + fmt.Sprint(s))
+			log.Print("Debug " + fmt.Sprint(s))
 		} else {
-			log.Print("DEBUG " + callingFunctionName + "(): " + fmt.Sprint(s))
+			log.Print("Debug " + callingFunctionName + "(): " + fmt.Sprint(s))
 		}
 	}
 }
 
-// Verbosef is a helper function for verbose logging if global variable verbose is set to true
+// Verbosef is a helper function for Verbose logging if global variable Verbose is set to true
 func Verbosef(s string) {
-	if debug != false || verbose != false {
+	if Debug != false || Verbose != false {
 		log.Print(fmt.Sprint(s))
 	}
 }
 
-// Infof is a helper function for info logging if global variable info is set to true
+// Infof is a helper function for Info logging if global variable Info is set to true
 func Infof(s string) {
-	if debug != false || verbose != false || info != false {
-		color.Green(s)
+	if Debug != false || Verbose != false || Info != false {
+		if InfoTimestamp {
+			log.Print(fmt.Sprint(s))
+		} else {
+			color.Green(s)
+		}
 	}
 }
 
@@ -61,6 +73,9 @@ func Warnf(s string) {
 	color.Set(color.FgYellow)
 	log.Print("WARN " + callingFunctionName + "(): " + fmt.Sprint(s))
 	color.Unset()
+	if WarnExit {
+		os.Exit(1)
+	}
 }
 
 // Fatalf is a helper function for fatal logging
@@ -69,7 +84,7 @@ func Fatalf(s string) {
 	os.Exit(1)
 }
 
-// fileExists checks if the given file exists and returns a bool
+// FileExists checks if the given file exists and returns a bool
 func FileExists(file string) bool {
 	//Debugf("checking for file existence " + file)
 	if _, err := os.Stat(file); os.IsNotExist(err) {
@@ -90,10 +105,10 @@ func IsDir(dir string) bool {
 	return false
 }
 
-// normalizeDir removes from the given directory path multiple redundant slashes and adds a trailing slash
+// NormalizeDir removes from the given directory path multiple redundant slashes and adds a trailing slash
 func NormalizeDir(dir string) string {
 	if strings.Count(dir, "//") > 0 {
-		dir = normalizeDir(strings.Replace(dir, "//", "/", -1))
+		dir = NormalizeDir(strings.Replace(dir, "//", "/", -1))
 	} else {
 		if !strings.HasSuffix(dir, "/") {
 			dir = dir + "/"
@@ -105,13 +120,13 @@ func NormalizeDir(dir string) string {
 // checkDirAndCreate tests if the given directory exists and tries to create it
 func CheckDirAndCreate(dir string, name string) string {
 	if len(dir) != 0 {
-		if !fileExists(dir) {
+		if !FileExists(dir) {
 			//log.Printf("checkDirAndCreate(): trying to create dir '%s' as %s", dir, name){
 			if err := os.MkdirAll(dir, 0777); err != nil {
 				Fatalf("checkDirAndCreate(): Error: failed to create directory: " + dir)
 			}
 		} else {
-			if !isDir(dir) {
+			if !IsDir(dir) {
 				Fatalf("checkDirAndCreate(): Error: " + dir + " exists, but is not a directory! Exiting!")
 			}
 		}
@@ -119,13 +134,13 @@ func CheckDirAndCreate(dir string, name string) string {
 		// TODO make dir optional
 		Fatalf("checkDirAndCreate(): Error: dir setting '" + name + "' missing! Exiting!")
 	}
-	dir = normalizeDir(dir)
+	dir = NormalizeDir(dir)
 	Debugf("Using as " + name + ": " + dir)
 	return dir
 }
 
 func CreateOrPurgeDir(dir string, callingFunction string) {
-	if !fileExists(dir) {
+	if !FileExists(dir) {
 		Debugf("Trying to create dir: " + dir + " called from " + callingFunction)
 		os.MkdirAll(dir, 0777)
 	} else {
@@ -139,7 +154,7 @@ func CreateOrPurgeDir(dir string, callingFunction string) {
 }
 
 func PurgeDir(dir string, callingFunction string) {
-	if !fileExists(dir) {
+	if !FileExists(dir) {
 		Debugf("Unnecessary to remove dir: " + dir + " it does not exist. Called from " + callingFunction)
 	} else {
 		Debugf("Trying to remove: " + dir + " called from " + callingFunction)
@@ -171,7 +186,7 @@ func ExecuteCommand(command string, timeout int, allowFail bool) ExecResult {
 	duration := time.Since(before).Seconds()
 	er := ExecResult{0, string(out)}
 	if msg, ok := err.(*exec.ExitError); ok { // there is error code
-		er.returnCode = msg.Sys().(syscall.WaitStatus).ExitStatus()
+		er.ReturnCode = msg.Sys().(syscall.WaitStatus).ExitStatus()
 	}
 	if allowFail && err != nil {
 		Debugf("Executing " + command + " took " + strconv.FormatFloat(duration, 'f', 5, 64) + "s")
@@ -182,8 +197,8 @@ func ExecuteCommand(command string, timeout int, allowFail bool) ExecResult {
 		if !allowFail {
 			Fatalf("executeCommand(): command failed: " + command + " " + err.Error() + "\nOutput: " + string(out))
 		} else {
-			er.returnCode = 1
-			er.output = fmt.Sprint(err)
+			er.ReturnCode = 1
+			er.Output = fmt.Sprint(err)
 		}
 	}
 	return er
@@ -241,35 +256,6 @@ func WriteStructJSONFile(file string, v interface{}) {
 		Warnf("Could not encode JSON file " + file + " " + err.Error())
 	}
 	f.Write(json)
-}
-
-// TODO read interface instead of clusterState
-func ReadClusterStateFile(file string, cs clusterState) clusterState {
-	Debugf("Trying to read json file: " + file)
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		Fatalf("readStructJSONFile(): There was an error parsing the json file " + file + ": " + err.Error())
-	}
-
-	err = json.Unmarshal([]byte(data), &cs)
-	if err != nil {
-		Fatalf("In json file " + file + ": JSON unmarshal error: " + err.Error())
-	}
-	return cs
-}
-
-func ReadAckFile(file string, res response) response {
-	Debugf("Trying to read json file: " + file)
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		Fatalf("readStructJSONFile(): There was an error parsing the json file " + file + ": " + err.Error())
-	}
-
-	err = json.Unmarshal([]byte(data), &res)
-	if err != nil {
-		Fatalf("In json file " + file + ": JSON unmarshal error: " + err.Error())
-	}
-	return res
 }
 
 func KeysString(m map[string]struct{}) []string {
