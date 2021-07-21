@@ -20,11 +20,14 @@ import (
 )
 
 var (
-	Debug         bool
+	//Debug variable to toggle debug output
+	Debug bool
+	//Verbose variable to toggle verbose output
 	Verbose       bool
 	Info          bool
 	InfoTimestamp bool
 	WarnExit      bool
+	FatalExit     bool
 	Quiet         bool
 )
 
@@ -81,7 +84,9 @@ func Warnf(s string) {
 // Fatalf is a helper function for fatal logging
 func Fatalf(s string) {
 	color.New(color.FgRed).Fprintln(os.Stderr, s)
-	os.Exit(1)
+	if FatalExit {
+		os.Exit(1)
+	}
 }
 
 // FileExists checks if the given file exists and returns a bool
@@ -188,18 +193,13 @@ func ExecuteCommand(command string, timeout int, allowFail bool) ExecResult {
 	if msg, ok := err.(*exec.ExitError); ok { // there is error code
 		er.ReturnCode = msg.Sys().(syscall.WaitStatus).ExitStatus()
 	}
-	if allowFail && err != nil {
-		Debugf("Executing " + command + " took " + strconv.FormatFloat(duration, 'f', 5, 64) + "s")
-	} else {
-		Verbosef("Executing " + command + " took " + strconv.FormatFloat(duration, 'f', 5, 64) + "s")
+	Debugf("Executing " + command + " took " + strconv.FormatFloat(duration, 'f', 5, 64) + "s")
+	if !allowFail && err != nil {
+		Fatalf("executeCommand(): command failed: " + command + " " + err.Error() + "\nOutput: " + string(out))
 	}
 	if err != nil {
-		if !allowFail {
-			Fatalf("executeCommand(): command failed: " + command + " " + err.Error() + "\nOutput: " + string(out))
-		} else {
-			er.ReturnCode = 1
-			er.Output = fmt.Sprint(err)
-		}
+		er.ReturnCode = 1
+		er.Output = fmt.Sprint(err) + " " + fmt.Sprint(string(out))
 	}
 	return er
 }
