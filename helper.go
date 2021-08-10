@@ -265,3 +265,12 @@ func KeysString(m map[string]struct{}) []string {
 	}
 	return keys
 }
+
+func StringSliceContains(slice []string, element string) bool {
+	for _, e := range slice {
+		if e == element {
+			return true
+		}
+	}
+	return false
+}
