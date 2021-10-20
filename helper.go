@@ -23,7 +23,8 @@ var (
 	//Debug variable to toggle debug output
 	Debug bool
 	//Verbose variable to toggle verbose output
-	Verbose       bool
+	Verbose bool
+	//Info variable to toggle info output
 	Info          bool
 	InfoTimestamp bool
 	WarnExit      bool
