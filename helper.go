@@ -308,13 +308,13 @@ func GetRequestClientIp(request *http.Request, proxyNetworks []net.IPNet) (net.I
 	return ip, nil
 }
 
-func ParseNetworks(networkStrings []string, contextMessage string) []net.IPNet, err {
+func ParseNetworks(networkStrings []string, contextMessage string) ([]net.IPNet, error) {
 	var networks []net.IPNet
 	for _, networkString := range networkStrings {
 		_, network, err := net.ParseCIDR(networkString)
 		if err != nil {
 			m := contextMessage + ": failed to parse CIDR '" + networkString + "' " + err.Error()
-			return nil, m
+			return nil, errors.New(m)
 		}
 		networks = append(networks, *network)
 	}
