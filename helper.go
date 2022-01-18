@@ -3,10 +3,13 @@ package helper
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"math/rand"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -273,4 +276,34 @@ func StringSliceContains(slice []string, element string) bool {
 		}
 	}
 	return false
+}
+
+// getRequestClientIp extract the client IP address from the request with support for X-Forwarded-For header when the request is originating from proxied networks
+func getRequestClientIp(request *http.Request, proxyNetworks []net.IPNet) (net.IP, error) {
+	// RemoteAddr may contain a string like "[2001:db8::1]:12345", hence the following parsing
+	// if the address belongs to a proxy network, the address from the X-Forwarded-For header is parsed and returned
+	// an error is returned if parsing the X-Forwarded-For header failed (e.g. expected but not present)
+	ipWithoutPortNumber := strings.TrimRight(request.RemoteAddr, "0123456789")
+	ipPotentiallyWithBrackets := strings.TrimRight(ipWithoutPortNumber, ":")
+	ipString := strings.Trim(ipPotentiallyWithBrackets, "[]")
+	ip := net.ParseIP(ipString)
+	if ip == nil {
+		return nil, errors.New("failed to parse the client ip '" + ipString + "' from RemoteAddr " + request.RemoteAddr)
+	}
+	for _, proyxNetwork := range proxyNetworks {
+		if proyxNetwork.Contains(ip) {
+			xForwardedForHeaders := request.Header["X-Forwarded-For"]
+			if len(xForwardedForHeaders) != 1 {
+				return nil, errors.New("rejecting the request from " + request.RemoteAddr + " because it has " +
+					strconv.Itoa(len(xForwardedForHeaders)) + " 'X-Forwarded-For' headers, but exactly one was expected")
+			}
+			ip = net.ParseIP(xForwardedForHeaders[0])
+			if ip == nil {
+				return nil, errors.New("failed to parse the X-Forwarded-For header '" + xForwardedForHeaders[0] +
+					"' from RemoteAddr " + request.RemoteAddr)
+			}
+			return ip, nil
+		}
+	}
+	return ip, nil
 }
