@@ -278,8 +278,8 @@ func StringSliceContains(slice []string, element string) bool {
 	return false
 }
 
-// getRequestClientIp extract the client IP address from the request with support for X-Forwarded-For header when the request is originating from proxied networks
-func getRequestClientIp(request *http.Request, proxyNetworks []net.IPNet) (net.IP, error) {
+// GetRequestClientIp extract the client IP address from the request with support for X-Forwarded-For header when the request is originating from proxied networks
+func GetRequestClientIp(request *http.Request, proxyNetworks []net.IPNet) (net.IP, error) {
 	// RemoteAddr may contain a string like "[2001:db8::1]:12345", hence the following parsing
 	// if the address belongs to a proxy network, the address from the X-Forwarded-For header is parsed and returned
 	// an error is returned if parsing the X-Forwarded-For header failed (e.g. expected but not present)
@@ -306,4 +306,17 @@ func getRequestClientIp(request *http.Request, proxyNetworks []net.IPNet) (net.I
 		}
 	}
 	return ip, nil
+}
+
+func ParseNetworks(networkStrings []string, contextMessage string) []net.IPNet, err {
+	var networks []net.IPNet
+	for _, networkString := range networkStrings {
+		_, network, err := net.ParseCIDR(networkString)
+		if err != nil {
+			m := contextMessage + ": failed to parse CIDR '" + networkString + "' " + err.Error()
+			return nil, m
+		}
+		networks = append(networks, *network)
+	}
+	return networks, nil
 }
