@@ -126,25 +126,22 @@ func NormalizeDir(dir string) string {
 }
 
 // checkDirAndCreate tests if the given directory exists and tries to create it
-func CheckDirAndCreate(dir string, name string) string {
+func CheckDirAndCreate(dir string, name string) (string, error) {
 	if len(dir) != 0 {
 		if !FileExists(dir) {
 			//log.Printf("checkDirAndCreate(): trying to create dir '%s' as %s", dir, name){
 			if err := os.MkdirAll(dir, 0777); err != nil {
-				Fatalf("checkDirAndCreate(): Error: failed to create directory: " + dir)
+				return "", errors.New("checkDirAndCreate(): failed to create directory: " + dir + " Error: " + err.Error())
 			}
 		} else {
 			if !IsDir(dir) {
-				Fatalf("checkDirAndCreate(): Error: " + dir + " exists, but is not a directory! Exiting!")
+				return "", errors.New("checkDirAndCreate(): Error: " + dir + " exists, but is not a directory! Exiting!")
 			}
 		}
-	} else {
-		// TODO make dir optional
-		Fatalf("checkDirAndCreate(): Error: dir setting '" + name + "' missing! Exiting!")
 	}
 	dir = NormalizeDir(dir)
 	Debugf("Using as " + name + ": " + dir)
-	return dir
+	return dir, nil
 }
 
 func CreateOrPurgeDir(dir string, callingFunction string) {
