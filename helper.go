@@ -317,3 +317,7 @@ func ParseNetworks(networkStrings []string, contextMessage string) ([]net.IPNet,
 	}
 	return networks, nil
 }
+
+func BoolPointer(b bool) *bool {
+    return &b
+}
