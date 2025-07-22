@@ -348,10 +348,10 @@ func DetectBrowserOrCLI(request *http.Request) string {
 	return mode
 }
 
-// colorize returns the string wrapped in ANSI color codes if stdout is a terminal.
+// Colorize returns the string wrapped in ANSI color codes if stdout is a terminal.
 // Supported colors: "yellow", "green", "red", "orange", "blue", "magenta", "cyan", "white".
 // If the color is not recognized, it returns the string without any color codes.
-func colorize(s, color string) string {
+func Colorize(s, color string) string {
 	if !term.IsTerminal(int(os.Stdout.Fd())) {
 		return s
 	}
