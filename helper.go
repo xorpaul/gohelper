@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -173,6 +174,10 @@ func PurgeDir(dir string, callingFunction string) {
 	}
 }
 
+// ExecuteCommand runs command (split with shell quoting rules, no shell) and returns its exit code and combined output.
+// The real exit code of the command is kept in ReturnCode. If timeout is larger than 0 the command is killed after timeout seconds
+// and ReturnCode is 124 (like timeout(1)). If the command could not be started at all ReturnCode is 1.
+// If allowFail is false, a failing command is fatal.
 func ExecuteCommand(command string, timeout int, allowFail bool) ExecResult {
 	Debugf("Executing " + command)
 	parts := strings.SplitN(command, " ", 2)
@@ -187,20 +192,37 @@ func ExecuteCommand(command string, timeout int, allowFail bool) ExecResult {
 		}
 	}
 
+	ctx := context.Background()
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+		defer cancel()
+	}
+	c := exec.CommandContext(ctx, cmd, cmdArgs...)
+	// do not wait forever for child processes that keep the output pipe open after the command was killed
+	c.WaitDelay = 2 * time.Second
+
 	before := time.Now()
-	out, err := exec.Command(cmd, cmdArgs...).CombinedOutput()
+	out, err := c.CombinedOutput()
 	duration := time.Since(before).Seconds()
 	er := ExecResult{0, string(out)}
-	if msg, ok := err.(*exec.ExitError); ok { // there is error code
-		er.ReturnCode = msg.Sys().(syscall.WaitStatus).ExitStatus()
+	timedOut := ctx.Err() == context.DeadlineExceeded
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok && !timedOut {
+			er.ReturnCode = ee.ExitCode() // the real exit code, -1 if the command was killed by a signal
+		} else {
+			er.ReturnCode = 1
+		}
+		if timedOut {
+			er.ReturnCode = 124
+			er.Output = "timed out after " + strconv.Itoa(timeout) + "s: " + fmt.Sprint(err) + " " + string(out)
+		} else {
+			er.Output = fmt.Sprint(err) + " " + string(out)
+		}
 	}
 	Debugf("Executing " + command + " took " + strconv.FormatFloat(duration, 'f', 5, 64) + "s")
 	if !allowFail && err != nil {
 		Fatalf("executeCommand(): command failed: " + command + " " + err.Error() + "\nOutput: " + string(out))
-	}
-	if err != nil {
-		er.ReturnCode = 1
-		er.Output = fmt.Sprint(err) + " " + fmt.Sprint(string(out))
 	}
 	return er
 }
